@@ -24,7 +24,7 @@ ZB is a personal AI assistant with the essence of J.A.R.V.I.S. It's Haitian-Amer
 
 ## Install the downloadable app
 
-The app lives at **https://mareuscalvin-source.github.io/zb/** (GitHub Pages, served from `main` / `docs`).
+The app lives at **https://mareuscalvin-source.github.io/zb/** (GitHub Pages, served from the `gh-pages` branch, which is a copy of `docs/`; after `npm run build`, copy `docs/` there to update the live app).
 
 - **iPhone:** open the link in Safari → Share → **Add to Home Screen**.
 - **Android:** open the link in Chrome → ⋮ → **Install app**.
