@@ -1,0 +1,72 @@
+[
+ {
+  "severity": "high",
+  "title": "Fold ridges regularly blow out to pure white lines (the reference has no white pixels)",
+  "where": "src/orb.js:192 (brightness floor pow(clamp(area, 0.02, 1.2), 0.5)), :185 (mix toward vec3(1.0) from spec/ridge/glow), :196 (per-dot normalisation only), :882 (blendFunc ONE, ONE)",
+  "evidence": "reference.png has 0 pixels with every channel above 230 (the highest min-channel is 202). The orb puts out solid (255,255,255) lines: vis-sweep-thinking-t192.png has 3114 pure-white px forming a diagonal white line across the face. vis-sweep-thinking-t240.png and vis-sweep-idle-t252.png (2041 px) show the same, and vis-idle-t140.png has a 962 px white streak at x183-302, y379-573 (zoomed: the dots merge into a solid white bar). The phone shot vis-phone-idle-t140.png shows the same streak. In a 25-frame time sweep, thinking had 1000-3700 white px in every frame. The surprise transient vis-tr-surprise-07.png peaks at about 10k near-white px along the right rim. The per-dot hue-preserving divide only stops one dot from clipping. Where the sheet folds edge-on, dozens of dots stack additively, and the area term is clamped at 0.02, so collapsed cells never dim further and their sum saturates to white.",
+  "fix": "Make collapsed cells conserve energy. Lower the clamp floor (for example clamp(area, 0.002, 1.2)) and make brightness linear in area below about 0.1, so N stacked dots add up to about one dot. Remove or greatly reduce the 0.16*spec white mix on edge-on dots (ridge > 0.5). Optionally render to an RGBA8 FBO and apply a hue-preserving tone-map (divide by max channel) in a final pass, which WebGL1 supports without extensions."
+ },
+ {
+  "severity": "medium",
+  "title": "Speaking at normal loudness shows no syllables and reads as a calmer idle",
+  "where": "src/orb.js:850 (absolute onset threshold open - floor > 0.2), :947 (uRipple = open*0.03 + energy*0.012), :132 (uOpen*0.11), :268 (speaking amp 0.16 < idle 0.24, no tint)",
+  "evidence": "In the app, energy = open*1.4 (src/voice.js:424), so energy=0.3 is ordinary speech. Deterministic 33 ms frames vis-tr-speak03-00..15.png (390x844@2, top70 bottom270... top70 bottom260) cover open 0.08 to 0.29: the silhouette changes by at most 6 css px on a ~300 px orb, and mean lit brightness drifts only 126 to 124. _kick stayed exactly 0 the whole time, so not one syllable ring was spawned. Compare trough vis-tr-speak03-02.png with peak vis-tr-speak03-08.png: they look the same. Only energy=1 reads (vis-tr-speak1-03 vs -09). vis-phone-speaking-e03.png against vis-phone-idle.png: same mean hue (216 deg), similar size (626 vs 636 device px), and the speaking orb has shallower folds than idle.",
+  "fix": "Make onset detection relative: spawn a ring when open rises by more than max(0.05, 0.4 * recent peak) above the floor. Give every onset a minimum visible ring and brightness pulse that does not depend on energy. Normalise uRipple and uOpen by a running peak so quiet speech still swings fully. Give speaking a base look that differs from idle, such as slightly higher brightness or a ring breathing at the syllable rate."
+ },
+ {
+  "severity": "medium",
+  "title": "Mood tints move the wrong way on some palettes (sad turns hot pink on Ember, happy turns cooler on Borealis)",
+  "where": "src/orb.js:327 (mixHsl green-avoid rule: dh += dh > 0 ? -1 : 1; th *= 0.4), tints at :245 WARM and :252 SAD",
+  "evidence": "vis-phone-ember-sad.png: the sad mood turns Ember's amber/yellow top into magenta-red. Mean lit hue goes from 20 deg (vis-phone-ember.png) to 327 deg (mean RGB 135,64,103), which is hotter and pinker, close to the aurora happy/laughing hue (285-289 deg), not cooler. vis-phone-borealis-happy.png: happy turns Borealis' mint top sky-blue, with mean hue going from 180 deg (vis-phone-borealis.png) to 245 deg, so happy reads cooler. Both cases happen because the shortest hue path crosses green, so the rule takes the long way round at 40% strength, which ends up on the opposite side of the wheel from the tint.",
+  "fix": "When the short path crosses green, do not reverse direction. Hold the hue (or allow only a small shift) and express the mood through lightness, saturation and brightness. Or define each mood as a signed warm/cool hue delta that is clamped to stay out of 75-170 deg, instead of a target colour."
+ },
+ {
+  "severity": "medium",
+  "title": "Surprised settles into a listening lookalike; its gold flash never appears",
+  "where": "src/orb.js:247 (SPARK tint), :279 (surprised mood), :327 (mixHsl reroutes cyan->gold through blue)",
+  "evidence": "vis-phone-surprised.png and vis-phone-listening.png are both large, smooth, cyan-blue balls: hue 217 vs 208 deg, size 638x645 vs 649x662 device px. Surprised has the same hue as idle (216 deg). Its gold stop produces 0 gold pixels (r>150, g>120, b<110), because the cyan-to-gold path crosses green and gets bent to indigo (the middle band of vis-surprised.png is indigo). The transient vis-tr-surprise-00..08.png expands for about 0.4 s. After that, nothing but scale tells surprised apart from listening.",
+  "fix": "Give surprised a signature that does not depend on hue mixing. For example, keep a brief whole-orb brightness flash and a sustained high-frequency shimmer or ripple train while the mood holds, and apply the gold accent as a direct additive highlight on the ring glow instead of through mixHsl."
+ },
+ {
+  "severity": "medium",
+  "title": "Orb touches and clips the phone's right edge when surprise fires during loud speech",
+  "where": "src/orb.js:689 (_edgeR = 0.5*min(w, free), exactly the screen half-width), :903 (ext leaves out warp, ring displacement, open swell, perspective and dot radius)",
+  "evidence": "vis-worst-speak-surp-02.png (390x844@2, top=70 bottom=260, state=speaking energy=1, setMood('surprised') at runtime, 9 frames of 1/60 s later): the outermost 3 device-px column of the canvas reaches 255 over css y 342-362, so dots are cut at x=390. Frame -09 of the same run reaches x=5 on the left. ext only models radius*scale*(1 + amp*0.9 + 0.04 + open*0.03). It leaves out uWarp's tangential push, the 0.085*rings ring displacement, the uOpen*0.11 swell, the 5/(5-z) perspective and the sprite radius, so the hard cap underestimates the real silhouette. The cap is also set to the full half-width. Steady states are fine: across all phone shots, x stays within 14.5-368 and y within 140-517, all inside the 70-584 free band.",
+  "fix": "Set _edgeR to about 0.47*min(w, free) minus the dot sprite radius in css px. Add c.warp + 0.085*maxRingAmp + this._open*0.11 to the ext multiplier, along with a 1.05 perspective factor."
+ },
+ {
+  "severity": "medium",
+  "title": "Watchdog fires fail('slow') at the density floor without checking whether the orb is the cause, and the app then removes the orb for the rest of the session",
+  "where": "src/orb.js:777-783 (_watchdog); consumer src/avatar.js:29-39, src/app.js:1113",
+  "evidence": "When slowT > 4 and FACE_STEPS has no lower step, `_fail('slow')` fires as soon as avg > 0.06. No probe runs, so the notOurs logic (765, 777) that discounts slowness from other code can never apply at the floor. Avatar's onFail destroys the orb, sets orbFailed=true and switches to the face for the rest of the session, and app.js:1113 shows the toast \"This device can't show the 3D orb\". The app itself causes stalls like this: pdf-entry.js:1-2 runs the pdf.js worker on the main thread, and extract.js:155 calls the synchronous unzipSync. I ran the real HoloOrb.prototype._watchdog in Node with _setCap stubbed (scratchpad/wd3.mjs). With N=30 at the floor and a steady 60 fps, 4.2 s of app work at 12 fps gave `14.03s FAIL slow (avg 0.084)`, and 5 s at 10 fps gave FAIL at 14.00s. The same stall at N=56 only probes down and comes back.",
+  "fix": "At the floor, only fail after a probe that proves the cost is the orb's. For example, skip drawing for ~1 s, or draw at half rate, and fail only if frame time recovers by a clear margin. Leave frames longer than ~250 ms (long tasks) out of avg. Have the app treat 'slow' as advisory, not as a reason to call destroy."
+ },
+ {
+  "severity": "medium",
+  "title": "Watchdog counts the tab-return gap and single long tasks as slow frames; the resulting step-down (and DPR drop) is kept because the baseline it is compared against is inflated",
+  "where": "src/orb.js:753-755, 762-765, 779-782, 732-735; DPR switch at 675",
+  "evidence": "`f = Math.min(raw, 1)` (754) feeds any gap up to 1 s into avg. `skip` is set only by `_idle()`, which runs only on a rAF tick that sees hidden or paused. Browsers send no rAF while document.hidden, so the first tick after returning has raw equal to the whole hidden time and skip=0. That one sample moves avg from 0.0167 to 0.814 and sets slowT to 1. Decaying back to 0.022 takes about 3.0 s, which leaves slowT at exactly 4.000 against the `> 4` threshold (scratchpad/wd2.mjs). A gap followed by 2x100 ms, 1x250 ms or 10x33 ms catch-up frames sets `cap->48` about 3 s later. The step is then KEPT: p.before is the inflated EMA (~0.022), the true mean is 0.0167, and 0.0167 < 0.88*0.022 (765). The up-probe restores 56 only ~15 s later. A single 1.2 s main-thread stall does the same (`14.22s cap->48`, `29.25s cap->56`). Each step also switches DPR 2 -> 1.5 -> 2 (675), so the canvas is reallocated twice and visibly softens for ~15 s.",
+  "fix": "Treat raw > ~0.25 s as a gap: call `_idle()` and return without feeding avg. Add a visibilitychange listener that calls `_idle()`. Take the probe's `before` from a fresh window at the current N, or from a median of recent frames, not from the EMA that the outlier inflated."
+ },
+ {
+  "severity": "medium",
+  "title": "rAF loop keeps running at full display rate while paused, covered or offscreen",
+  "where": "src/orb.js:699 (unconditional requestAnimationFrame) vs 706-707 (paused check); 703-705",
+  "evidence": "`_loop` schedules the next rAF before it checks paused, _offscreen, !_visible or document.hidden. Avatar sets paused=true on the inactive renderer and while the stage is covered (avatar.js:64,76, commented 'saves battery on phones'). Measured in headless Chromium with orb.paused=true: 119 rAF callbacks in 2 s, which is full rate, plus 4 getComputedStyle calls in 2 s, because the visibility poll at 703-705 runs before the paused check. When the user picks the face look, the orb keeps waking on every vsync for the whole session (120/s on 120 Hz phones). The face renderer's loop does the same.",
+  "fix": "Turn `paused` into a setter. On pause, cancelAnimationFrame and stop. On unpause, reset `_last`, call `_idle()` and restart `_loop`. Restart from the IntersectionObserver callback when the canvas comes back into view, and from a visibilitychange listener when the page is shown, instead of spinning."
+ },
+ {
+  "severity": "medium",
+  "title": "A lost WebGL context that is never restored is never reported: the stage stays blank and the app never falls back",
+  "where": "src/orb.js:428 (_onLost), 429-441 (_onRestored), 554-562 (_fail)",
+  "evidence": "`_onLost` sets _lost and cancels rAF. A failure is reported only from `_onRestored`, and only if the rebuild throws. Nothing handles the case where 'webglcontextrestored' never arrives, which happens for example when Chrome blocks WebGL for the page after repeated GPU resets. Measured after WEBGL_lose_context.loseContext() with no restore, 3 s later: lost=true, failed=false, 0 'orbfail' events, onFail not called, loop stopped. Avatar falls back only through onFail, so the user sees an empty stage with no hologram head. Verdict: PLAUSIBLE in production, because it depends on the browser declining to restore.",
+  "fix": "In `_onLost`, start a timer of 3-5 s. If no restore has arrived by then, call `_fail('restore')` (or a new 'lost' reason). Clear the timer in `_onRestored` and `destroy()`."
+ },
+ {
+  "severity": "medium",
+  "title": "A context lost for good, or a failed restore, leaves the orb blank and the app never falls back",
+  "where": "src/orb.js:428 (_onLost sets no timeout), src/orb.js:554-562 (_fail), src/avatar.js:27 (no onFail and no orbfail listener)",
+  "evidence": "_onLost only sets _lost and cancels rAF. Nothing reports failure unless webglcontextrestored later arrives and _initGL throws. Experiment (scratchpad probe.mjs): WEBGL_lose_context.loseContext() with no restoreContext, waited 3 s, got {lost:true, failed:false, ev:[]}, so no orbfail fired and failed stayed false. The restore event never comes when Chrome blocks 3D APIs for the origin after repeated GPU resets, a known pattern on older Android GPUs. Separately, grep finds no consumer of onFail or 'orbfail' anywhere in src/ apart from orb.js: Avatar constructs `new HoloOrb(this.canvases.orb, { palette })` without onFail. So even the existing 'restore' and 'slow' signals are dropped, and the canvas stays black (or slow) with no switch to the HoloFace fallback.",
+  "fix": "In _onLost, start a timer (about 3-5 s). If no webglcontextrestored arrives in time, call this._fail('lost'). Keep the restore listener so a late restore can still recover, and clear the timer in _onRestored and destroy(). In Avatar._make, pass onFail: (reason) => { if (reason !== 'slow' || /* policy */ true) { this.orbFailed = true; delete this.r.orb; this.use('face'); } }, or listen for 'orbfail' on the orb canvas."
+ }
+]

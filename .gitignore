@@ -1,0 +1,7 @@
+node_modules/
+dev/mock-artifact.html
+*.zip
+.DS_Store
+dev/lib/
+dev/orb-variants/shots/
+dev/persona/

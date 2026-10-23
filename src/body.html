@@ -1,0 +1,189 @@
+<div class="app" id="app" data-mode="web">
+  <div class="view" id="view" role="img" aria-label="Your assistant, ZB">
+    <canvas id="orbCanvas" class="stage"></canvas>
+    <canvas id="faceCanvas" class="stage" hidden></canvas>
+  </div>
+
+  <header class="hud" id="hud">
+    <div class="ident">
+      <div class="mark" id="mark">JARVIS</div>
+      <div class="status" id="status" data-state="idle"><span class="pip" aria-hidden="true"></span><span id="statusText">Standing by</span></div>
+    </div>
+    <div class="readouts">
+      <div class="ro wide-only"><span class="k">Time</span><span class="v" id="roTime">--:--</span></div>
+      <div class="ro wide-only"><span class="k">Mem</span><span class="v" id="roMem">00</span></div>
+      <div class="ro"><span class="k">Link</span><span class="v" id="roLink">Device</span></div>
+      <button class="icon-btn" id="btnVault" type="button" aria-label="Vault: files ZB remembers" aria-controls="vaultPanel" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h17v12h-17z"/><path d="M5.5 7.5V5h13v2.5M9.5 12h5"/></svg>
+      </button>
+      <button class="icon-btn" id="btnSettings" type="button" aria-label="Settings" aria-controls="panel" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="timers" id="timers"></div>
+
+  <button class="wake" id="wake" type="button">
+    <span class="wake-ring" aria-hidden="true"></span>
+    <span id="wakeText">Tap to wake ZB</span>
+  </button>
+
+  <section class="dock" id="dock" aria-label="Conversation">
+    <div class="log" id="log"></div>
+    <form class="composer" id="composer" autocomplete="off">
+      <button class="icon-btn" id="btnAttach" type="button" aria-label="Add a file or photo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5 12.2 19.3a5 5 0 0 1-7.1-7.1l8.2-8.2a3.3 3.3 0 0 1 4.7 4.7l-8.2 8.2a1.7 1.7 0 0 1-2.4-2.4l7.4-7.4"/></svg>
+      </button>
+      <input type="file" id="attachIn" multiple hidden>
+      <div class="field">
+        <div class="thumb" id="thumb" hidden>
+          <img id="thumbImg" alt="Photo to send">
+          <span class="thumb-name" id="thumbName"></span>
+          <span class="thumb-state" id="thumbState"></span>
+          <button type="button" id="thumbX" aria-label="Remove attachment">&times;</button>
+        </div>
+        <label class="sr" for="msg">Message</label>
+        <input id="msg" type="text" enterkeyhint="send" placeholder="Talk to ZB…">
+      </div>
+      <button class="icon-btn mic" id="btnMic" type="button" aria-label="Talk" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+      </button>
+      <button class="icon-btn send" id="btnSend" type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <p class="hint" id="hint"></p>
+  </section>
+
+  <aside class="panel" id="panel" role="dialog" aria-labelledby="panelTitle" hidden>
+    <div class="panel-head">
+      <h2 id="panelTitle">Settings</h2>
+      <button class="icon-btn" id="btnClose" type="button" aria-label="Close settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="panel-body">
+      <section class="group">
+        <h3>Identity</h3>
+        <label class="row"><span>Assistant name</span><input id="setName" type="text" maxlength="24"></label>
+        <label class="row"><span>What to call you</span><input id="setUser" type="text" maxlength="40"></label>
+        <label class="stack"><span>Personality</span><textarea id="setPersona" rows="4" maxlength="1200"></textarea></label>
+        <button class="link" id="resetPersona" type="button">Reset personality</button>
+      </section>
+
+      <section class="group">
+        <h3>Mirror</h3>
+        <p class="note" id="mirrorNote"></p>
+        <label class="row check"><span>Learn from how I talk</span><input id="setLearn" type="checkbox"></label>
+        <label class="stack"><span>How you talk (ZB's notes on you)</span><textarea id="setMirror" rows="8" maxlength="9000"></textarea></label>
+        <label class="stack"><span>Teach ZB faster: paste texts, captions or notes you wrote, one per line</span><textarea id="teachBox" rows="4" maxlength="12000"></textarea></label>
+        <div class="confirm-row">
+          <button class="btn" id="teachBtn" type="button">Add and study</button>
+          <button class="btn ghost" id="studyBtn" type="button">Study how I talk now</button>
+        </div>
+        <button class="link" id="resetMirror" type="button">Reset the mirror</button>
+      </section>
+
+      <section class="group">
+        <h3>Voice</h3>
+        <label class="row check"><span>Mute voice</span><input id="setMute" type="checkbox"></label>
+        <label class="row" data-only="web"><span>Voice engine</span>
+          <select id="setEngine"><option value="device">This device's voices</option><option value="eleven">ElevenLabs</option></select>
+        </label>
+        <div class="sub" id="deviceVoice">
+          <label class="row"><span>Voice</span><select id="setVoice"></select></label>
+          <label class="row"><span>Pitch</span><input id="setPitch" type="range" min="0.6" max="1.4" step="0.02"></label>
+          <label class="row"><span>Speed</span><input id="setRate" type="range" min="0.7" max="1.4" step="0.02"></label>
+        </div>
+        <div class="sub" id="elevenVoice" data-only="web">
+          <label class="row"><span>ElevenLabs API key</span><input id="setElKey" type="password" autocomplete="off" spellcheck="false"></label>
+          <label class="row"><span>Voice ID</span><input id="setElVoice" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM"></label>
+          <label class="row"><span>Voice model</span>
+            <select id="setElModel">
+              <option value="eleven_flash_v2_5">Flash v2.5 (fastest)</option>
+              <option value="eleven_v3">Eleven v3 (most expressive, best for designed voices)</option>
+              <option value="eleven_multilingual_v2">Multilingual v2</option>
+            </select>
+          </label>
+          <p class="note">Use any voice from your ElevenLabs account by pasting its Voice ID, or design a brand-new one below. Lip sync follows the voice letter by letter.</p>
+          <div class="designer" id="designer">
+            <p class="designer-title">Design ZB's voice</p>
+            <label class="stack"><span>Describe the voice</span><textarea id="vdDesc" rows="5" maxlength="1000"></textarea></label>
+            <label class="stack"><span>What he says in the samples (100 characters or more)</span><textarea id="vdText" rows="4" maxlength="1000"></textarea></label>
+            <button class="btn" id="vdMake" type="button">Make 3 voices</button>
+            <ul class="previews" id="vdList"></ul>
+            <p class="note">Every voice is original. ElevenLabs doesn't allow copying a real person's voice, so describe the sound you want instead of naming someone.</p>
+          </div>
+        </div>
+        <button class="btn" id="previewVoice" type="button">Play a sample</button>
+        <p class="note" data-only="cloud">This version uses the voices built into each device. For a specific voice you've picked out, use the downloadable app with ElevenLabs.</p>
+      </section>
+
+      <section class="group">
+        <h3>Brain</h3>
+        <label class="row" data-only="web"><span>Claude API key</span><input id="setKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"></label>
+        <label class="row" data-only="web"><span>Model</span><select id="setModel"></select></label>
+        <label class="row check" data-only="web"><span>Search the web</span><input id="setWeb" type="checkbox"></label>
+        <label class="row check"><span>Think deeper (slower)</span><input id="setDeep" type="checkbox"></label>
+        <p class="note" data-only="web">Keys stay on this device only. Claude API use is billed by Anthropic per message; ElevenLabs has a free monthly allowance.</p>
+        <p class="note" data-only="cloud">Runs on your Claude plan. Nothing extra to pay or set up.</p>
+      </section>
+
+      <section class="group" id="listenGroup" data-only="web">
+        <h3>Listening</h3>
+        <label class="row check"><span id="wakeLabel">Hands-free: say “ZB”</span><input id="setWake" type="checkbox"></label>
+        <p class="note">Keeps the microphone on while the app is open. Works best in Chrome or Edge.</p>
+      </section>
+
+      <section class="group">
+        <h3>Look</h3>
+        <label class="row"><span>Style</span>
+          <select id="setLook"><option value="orb">Living orb</option><option value="face">Hologram head</option></select>
+        </label>
+        <div class="stack"><span>Colorway</span>
+          <div class="swatches wide" id="setPalette" role="radiogroup" aria-label="Colorway"></div>
+        </div>
+        <div class="sub" id="faceOpts">
+          <label class="row check"><span>Beard</span><input id="setBeard" type="checkbox"></label>
+          <label class="row check"><span>Hair</span><input id="setHair" type="checkbox"></label>
+        </div>
+      </section>
+
+      <section class="group">
+        <h3>Memory</h3>
+        <p class="note" id="memNote"></p>
+        <ul class="mem" id="memList"></ul>
+        <div class="confirm-row">
+          <button class="btn ghost" id="clearChat" type="button">Clear chat history</button>
+          <button class="btn ghost danger" id="clearMem" type="button">Erase all memories</button>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <aside class="panel" id="vaultPanel" role="dialog" aria-labelledby="vaultTitle" hidden>
+    <div class="panel-head">
+      <h2 id="vaultTitle">Vault</h2>
+      <button class="icon-btn" id="vaultClose" type="button" aria-label="Close the Vault">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="panel-body">
+      <p class="note" id="vaultNote"></p>
+      <button class="drop" id="vaultAdd" type="button">
+        <span class="drop-title">Add files</span>
+        <span class="drop-sub">PDFs, Word, Excel, PowerPoint, photos, screenshots, notes</span>
+      </button>
+      <input type="file" id="vaultIn" multiple hidden>
+      <p class="note" id="vaultProgress" aria-live="polite"></p>
+      <ul class="vault-list" id="vaultList"></ul>
+      <p class="note" id="vaultUsage"></p>
+    </div>
+  </aside>
+
+  <div class="dropzone" id="dropzone" hidden><span>Drop to add to the Vault</span></div>
+
+  <div class="toast" id="toast" aria-hidden="true" hidden></div>
+  <div class="sr-only" id="announce" aria-live="polite" aria-atomic="true"></div>
+</div>

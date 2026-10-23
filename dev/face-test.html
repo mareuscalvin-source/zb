@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#02060b}canvas{width:100%;height:100%;display:block}</style></head>
+<body><canvas id="c"></canvas><script type="module">
+import { HoloFace } from '../src/face.js';
+const q = new URLSearchParams(location.search);
+const f = new HoloFace(document.getElementById('c'));
+window.face = f;
+f.setMood(q.get('mood') || 'neutral');
+if (q.get('open')) f.mouthSource = () => ({ open: +q.get('open'), wide: +(q.get('wide')||0), energy: 0.5 });
+if (q.get('yaw')) { f.lookAt(+q.get('yaw'), +(q.get('pitch')||0), 999); }
+if (q.get('state')) f.setState(q.get('state'));
+f.reduced = true; f.glitch.next = 1e9;
+</script></body></html>

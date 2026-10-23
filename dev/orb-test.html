@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:radial-gradient(ellipse at 50% 45%,#0a0f1e,#000 70%)}canvas{width:100%;height:100%;display:block}</style></head>
+<body><canvas id="c"></canvas><script type="module">
+const q = new URLSearchParams(location.search);
+const PAL = {
+  aurora: ['#3d7bff', '#4fd2ff', '#8f6bff', '#ff8ad8'], lakay: ['#2f5bff', '#4f8cff', '#ff4d6d', '#e8173f'],
+  siri: ['#ff3fa4', '#8a4dff', '#2fc6ff', '#43ffd0'], ember: ['#ffd36b', '#ff8a3d', '#ff3d72', '#a63dff'],
+};
+const v = q.get('v') || 'A';
+const { HoloOrb } = await import(`./orb-variants/orb-${v}.js?${Date.now()}`);
+const orb = new HoloOrb(document.getElementById('c'), { palette: PAL[q.get('palette') || 'aurora'] });
+window.orb = orb;
+orb.setViewport(+(q.get('top') || 0), +(q.get('bottom') || 0));
+orb.setState(q.get('state') || 'idle');
+orb.setMood(q.get('mood') || 'neutral');
+const energy = +(q.get('energy') || 0);
+if (energy > 0) orb.mouthSource = () => ({ open: energy * (0.55 + 0.45 * Math.sin(orb.time * 14)), wide: 0, energy });
+if (q.get('t')) { const T = +q.get('t'); orb.time = T - 1.2; setTimeout(() => { orb.time = T; }, 1000); }
+</script></body></html>

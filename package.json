@@ -1,0 +1,19 @@
+{
+  "name": "jarvis-hologram",
+  "version": "1.0.0",
+  "description": "Holographic AI assistant with a talking, animated face, powered by Claude.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10",
+    "playwright-core": "^1.55.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.137.0",
+    "fflate": "^0.8.3",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "private": true,
+  "type": "module"
+}

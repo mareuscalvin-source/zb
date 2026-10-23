@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;width:100%;height:100%;background:radial-gradient(circle at 50% 45%,#0b2233,#02060b 70%)}canvas{width:100%;height:100%;display:block}</style></head>
+<body><canvas id="c"></canvas><script type="module">
+import { HoloFace } from '../src/face.js';
+const q = new URLSearchParams(location.search);
+const k = +(q.get('k') || 0.33);
+const f = new HoloFace(document.getElementById('c'));
+f._layout = function () { this.scale = this.H * k; this.cx = this.W / 2; this.cy = this.H * 0.53; };
+f._layout();
+f._drawProjector = function () { this.baseY = this.cy + this.scale * 2; };
+f._drawRings = function () {};
+f._drawMotes = function () {};
+f.reduced = true; f.glitch.next = 1e9; f.blink.next = 1e9;
+f.setMood(q.get('mood') || 'confident');
+f.lookAt(0.15, 0.1, 999);
+</script></body></html>
