@@ -1,4 +1,4 @@
-// Voice: speaking (device voice or ElevenLabs) with a lip-sync timeline, and listening.
+// Voice: speaking (ZB's own voice, the device's voices, or ElevenLabs) with a lip-sync timeline, and listening.
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const now = () => performance.now() / 1000;
@@ -95,6 +95,12 @@ function estimateTimeline(text, rate = 1) {
   );
 }
 
+// Stretch an estimated timeline to a clip's real length.
+function fitTimeline(tl, dur) {
+  const k = tl.dur ? dur / tl.dur : 1;
+  return new Timeline(tl.items.map((it) => ({ ...it, t0: it.t0 * k, t1: it.t1 * k })));
+}
+
 function timelineFromAlignment(al) {
   const chars = al.characters || [];
   const st = al.character_start_times_seconds || [];
@@ -141,7 +147,9 @@ export class Speaker {
     this.cfg = {
       engine: 'device', voiceURI: '', pitch: 0.92, rate: 1, muted: false,
       elevenKey: '', elevenVoice: '', elevenModel: 'eleven_flash_v2_5',
+      zbSpeaker: 52, zbAccent: 2, zbRate: 1.05,
     };
+    this.zb = null; // ZbVoice, when this device has ZB's own voice
     this.synth = window.speechSynthesis || null;
     this.voices = [];
     this.amp = 0;
@@ -204,7 +212,9 @@ export class Speaker {
       // Caribbean English voices first when a device has them, then the preferred list
       if (/en-(JM|TT|BS|BB)/i.test(v.lang) || /Jamaica|Trinidad|Caribbean|Haiti/i.test(v.name)) return -1;
       const i = PREFERRED.findIndex((re) => re.test(v.name));
-      return (i < 0 ? 100 : i) + (/en-US/i.test(v.lang) ? 0 : 50);
+      // Apple's downloadable Premium and Enhanced voices sound far better than the built-in ones
+      const quality = /Premium/i.test(v.name) ? -60 : /Enhanced|Neural|Natural/i.test(v.name) ? -30 : 0;
+      return (i < 0 ? 100 : i) + (/en-US/i.test(v.lang) ? 0 : 50) + quality;
     };
     return [...this.voices].sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name));
   }
@@ -225,6 +235,8 @@ export class Speaker {
     const c = this.cfg;
     if (!c.muted && c.engine === 'eleven' && c.elevenKey && c.elevenVoice) {
       item.audio = this._fetchEleven(text).catch((error) => ({ error }));
+    } else if (!c.muted && c.engine === 'zb' && this.zb?.state === 'ready') {
+      item.audio = this._zbAudio(text).catch((error) => ({ error }));
     }
     this.queue.push(item);
     this._pump();
@@ -233,6 +245,7 @@ export class Speaker {
   stop() {
     this.queue = [];
     this.gen++;
+    this.zb?.cancel();
     try {
       this.synth?.cancel();
     } catch (e) {
@@ -264,7 +277,9 @@ export class Speaker {
       else if (item.audio) {
         const r = await item.audio;
         if (gen !== this.gen) return;
-        if (r.error) {
+        if (!r || r.empty) {
+          /* nothing to say out loud */
+        } else if (r.error) {
           this.ev.onError?.(r.error);
           await this._device(item, gen);
         } else await this._play(r, gen);
@@ -374,6 +389,19 @@ export class Speaker {
     const buffer = await ac.decodeAudioData(bytes.buffer.slice(0));
     const al = j.alignment || j.normalized_alignment;
     return { buffer, tl: al ? timelineFromAlignment(al) : estimateTimeline(text, 1) };
+  }
+
+  async _zbAudio(text) {
+    const c = this.cfg;
+    const r = await this.zb.speak(text, { speaker: c.zbSpeaker, accent: c.zbAccent, rate: c.zbRate });
+    if (!r) return null; // cancelled
+    if (r.error) throw r.error;
+    if (r.pcm.length < 64) return { empty: true };
+    const ac = this._ensureAudio();
+    if (!ac) throw new Error('This browser can\u2019t play generated audio.');
+    const buffer = ac.createBuffer(1, r.pcm.length, r.sampleRate);
+    buffer.copyToChannel(r.pcm, 0);
+    return { buffer, tl: fitTimeline(estimateTimeline(text, 1), buffer.duration) };
   }
 
   async _play({ buffer, tl }, gen) {

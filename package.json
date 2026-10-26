@@ -12,7 +12,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",
     "fflate": "^0.8.3",
-    "pdfjs-dist": "^4.10.38"
+    "onnxruntime-web": "^1.22.0",
+    "pdfjs-dist": "^4.10.38",
+    "phonemizer": "^1.2.1"
   },
   "private": true,
   "type": "module"

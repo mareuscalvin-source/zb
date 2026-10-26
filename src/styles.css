@@ -662,3 +662,36 @@ body {
   .app.panel-open .dock, .app.panel-open .hud, .app.panel-open .view { right: min(420px, 100%); }
   .app.panel-open .timers { right: calc(min(420px, 100%) + 16px); }
 }
+
+/* ---------- ZB's own voice ---------- */
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.progress { height: 4px; background: rgba(var(--holo-rgb), 0.12); overflow: hidden; }
+.progress span { display: block; height: 100%; width: 0; background: var(--holo); transition: width 0.3s; }
+.stepper { display: flex; align-items: center; gap: 6px; }
+.stepper input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 6px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(var(--holo-rgb), 0.04);
+  color: var(--ink);
+  font-family: var(--font-hud);
+  font-size: 15px;
+  text-align: center;
+}
+.icon-btn.small { width: 36px; height: 36px; font-size: 20px; line-height: 1; }
+.voice-chip {
+  display: block;
+  margin: 10px auto 0;
+  padding: 7px 14px;
+  font-family: var(--font-hud);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--holo);
+  background: rgba(var(--holo-rgb), 0.08);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.voice-chip[data-busy] { cursor: default; }

@@ -35,6 +35,9 @@ export const DEFAULT_PROFILE = {
   beard: true,
   hair: true,
   deep: false,
+  zbSpeaker: 52, // ZB's own voice: which of the 904, how much Miami, how fast
+  zbAccent: 2,
+  zbRate: 1.05,
 };
 
 // Bring profiles saved by the first version up to date without overwriting real customizations.

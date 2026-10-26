@@ -8,7 +8,8 @@ ZB is a personal AI assistant with the essence of J.A.R.V.I.S. It's Haitian-Amer
 
 - **The orb.** About 20,000 points of light on a living surface, folded by flowing 3D noise and drawn with WebGL. It reacts to the voice in real time. It has six colorways, including **Lakay** in Haitian blue and red. You can still switch back to the hologram head in Settings.
 - **The mirror.** ZB is modeled on its owner, like *Be Right Back* from Black Mirror. It starts from a profile of how they talk: word choice, flow, the "ya feel me," the side thoughts. It saves every message they send as a sample, and every dozen samples it re-studies them and updates its notes. You can paste in old texts under Settings → Mirror to teach it faster, and edit or reset its notes any time.
-- **The voice.** In the downloadable app, **Design ZB's voice** uses ElevenLabs Voice Design to generate original voices from a description (Haitian-American, North Miami, laid-back). You audition three and keep one. It's always an original voice, never a copy of a real person. The lips follow the audio letter by letter.
+- **ZB's own voice, free.** A neural voice that runs right on your device, no account and nothing to pay: a Piper voice model in a background worker with ONNX Runtime. It reads Kreyòl with Haitian pronunciation rules, and a Miami accent dial (none, light, full) reshapes how English comes out ("dat", "fo real", "jus'", "nuffin"). You can browse 904 voices; ZB's is voice 53. It's a one-time download per device (about 58 MB), cached for next time. It starts on its own on computers; phones get a button so it doesn't eat cell data.
+- **ElevenLabs (optional).** In the downloadable app, **Design ZB's voice** uses ElevenLabs Voice Design to generate original voices from a description (Haitian-American, North Miami, laid-back). You audition three and keep one. It's always an original voice, never a copy of a real person. The lips follow the audio letter by letter.
 - **The Vault (file memory).** On any device, drop in a PDF, Word doc, spreadsheet, slideshow, photo, screenshot or notes using the paperclip, the Vault button, or drag and drop on a computer. ZB reads it, files a summary and the key facts, and keeps the original where the platform can store it. Later, from any of your devices, ask "what did that lease say about the deposit?" and it answers from the file. Documents are read on your own device with Mozilla's pdf.js and a small built-in Office reader; nothing is sent anywhere except to Claude for the summary.
 - **One ZB on every device.** Open the claude.ai link on your laptop, Mac and phone. Memory, the mirror, the Vault and the chat stay in sync, and the top bar shows how many of your devices have ZB open right now.
 - **Memory and timers.** ZB remembers what matters and sets timers when you ask.
@@ -20,7 +21,7 @@ ZB is a personal AI assistant with the essence of J.A.R.V.I.S. It's Haitian-Amer
 | Brain | Your Claude plan. Nothing extra to pay | Your own Claude API key, billed per message |
 | Memory, mirror and chats | Synced across phone, Mac and laptop | Kept on each device |
 | Talking to it | Type, or use your keyboard's dictation mic | Tap the mic, or go hands-free by saying "ZB" |
-| Voice | Voices built into the device | A designed ElevenLabs voice, or device voices |
+| Voice | ZB's own voice (free, on device), or device voices | ZB's own voice, a designed ElevenLabs voice, or device voices |
 
 ## Install the downloadable app
 
@@ -44,10 +45,17 @@ Then open Settings (the gear, top right):
 - `src/avatar.js`: switches between the two and carries over mood, state and layout.
 - `src/mirror.js` and `src/mirror-seed.json`: the mirror. This is the starting profile, built from the owner's own messages, plus the study prompt and the sampling and re-study loop.
 - `src/brain.js`: the prompt and an inline tag language. The model writes `[mood:amused]`, `[remember:…]`, `[forget:…]` and `[timer:600|pasta]`, and tags are never spoken.
-- `src/voice.js`: device voices and ElevenLabs (with per-character timing for lip sync), Voice Design, and the mic and wake word.
+- `src/voice.js`: ZB's voice, device voices and ElevenLabs (with per-character timing for lip sync), Voice Design, and the mic and wake word.
+- `src/zbvoice.js`, `src/voice-worker.js` and `src/zbspeech.js`: ZB's own voice. Download and cache, the worker that runs the model, and the text front end (slang, money and years, Kreyòl detection and spelling-to-sound, the Miami accent rules on eSpeak's phonemes). `dev/voice-pack.py` packs the model for hosting.
 - `src/api.js`: Claude through the official `@anthropic-ai/sdk` (streaming, Claude Opus 5.5 by default, server-side fallback on refusals).
 - `src/store.js`: profile, memory, mirror, Vault index and chat. It uses the page's private database on claude.ai and local storage elsewhere.
 - `src/vault.js` and `src/extract.js`: the Vault. Text extraction (pdf.js on demand from `lib/pdf.js`, plus a built-in reader for .docx, .xlsx and .pptx), Claude summaries and image reading, keyword matching, and the text that goes into the prompt.
+
+## Credits
+
+- Voice model: Piper `en_US-libritts_r-medium`, trained on LibriTTS-R ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), from the [sherpa-onnx mirror](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models).
+- [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (MIT) and [phonemizer.js](https://github.com/xenova/phonemizer.js), which bundles [eSpeak NG](https://github.com/espeak-ng/espeak-ng) (GPL-3.0).
+- [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0) and [fflate](https://github.com/101arrowz/fflate) (MIT).
 
 ## Build
 

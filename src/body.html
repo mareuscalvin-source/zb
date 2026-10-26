@@ -53,6 +53,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </form>
+    <button class="voice-chip" id="voiceChip" type="button" hidden></button>
     <p class="hint" id="hint"></p>
   </section>
 
@@ -88,9 +89,30 @@
       <section class="group">
         <h3>Voice</h3>
         <label class="row check"><span>Mute voice</span><input id="setMute" type="checkbox"></label>
-        <label class="row" data-only="web"><span>Voice engine</span>
-          <select id="setEngine"><option value="device">This device's voices</option><option value="eleven">ElevenLabs</option></select>
+        <label class="row"><span>Voice engine</span>
+          <select id="setEngine"><option value="zb">ZB's voice (free)</option><option value="device">This device's voices</option><option value="eleven" data-only="web">ElevenLabs</option></select>
         </label>
+        <div class="sub" id="zbVoice">
+          <p class="note" id="zbStatus" aria-live="polite"></p>
+          <div class="progress" id="zbBar" hidden><span id="zbFill"></span></div>
+          <div class="btn-row">
+            <button class="btn" id="zbGet" type="button">Download ZB's voice</button>
+            <button class="btn ghost" id="zbRemove" type="button" hidden>Remove from this device</button>
+          </div>
+          <div class="row"><span>Voice</span>
+            <span class="stepper">
+              <button class="icon-btn small" id="zbPrev" type="button" aria-label="Previous voice">&lsaquo;</button>
+              <input id="zbSpeaker" type="number" min="1" max="904" inputmode="numeric" aria-label="Voice number">
+              <button class="icon-btn small" id="zbNext" type="button" aria-label="Next voice">&rsaquo;</button>
+            </span>
+          </div>
+          <label class="row"><span>Accent</span>
+            <select id="zbAccent"><option value="0">None</option><option value="1">Light Miami</option><option value="2">Full Miami</option></select>
+          </label>
+          <label class="row"><span>Speed</span><input id="zbRate" type="range" min="0.8" max="1.3" step="0.01"></label>
+          <p class="note">Made right on your device, no account or payments. Voice 53 is the one you picked (number 9 in the samples); the arrows try any of 904. Same settings on all your devices.</p>
+          <p class="note">Voice model: Piper en_US LibriTTS-R (CC BY 4.0), run with ONNX Runtime and eSpeak NG.</p>
+        </div>
         <div class="sub" id="deviceVoice">
           <label class="row"><span>Voice</span><select id="setVoice"></select></label>
           <label class="row"><span>Pitch</span><input id="setPitch" type="range" min="0.6" max="1.4" step="0.02"></label>
@@ -117,7 +139,7 @@
           </div>
         </div>
         <button class="btn" id="previewVoice" type="button">Play a sample</button>
-        <p class="note" data-only="cloud">This version uses the voices built into each device. For a specific voice you've picked out, use the downloadable app with ElevenLabs.</p>
+
       </section>
 
       <section class="group">

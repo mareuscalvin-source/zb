@@ -2,6 +2,7 @@
 import { Avatar } from './avatar.js';
 import { PALETTES, DEFAULT_PALETTE, hexToRgb } from './palettes.js';
 import { Speaker, Listener, designVoices, saveDesignedVoice, ZB_VOICE_DESCRIPTION, ZB_VOICE_SAMPLE } from './voice.js';
+import { ZbVoice, ZB_DEFAULT_SPEAKER, ZB_SPEAKERS, VOICE_DOWNLOAD_MB } from './zbvoice.js';
 import {
   buildSystem, TagStream, Sentences, normalizeMood, askViaPage, pageErrorText, DEFAULT_PERSONALITY,
 } from './brain.js';
@@ -23,13 +24,19 @@ export function boot({ apiAsk = null, apiErrorText = null, models = [] } = {}) {
 
   const store = createStore({ cloudPossible: inClaude });
   const dev = {
-    engine: 'device', voiceURI: '', pitch: 0.92, rate: 1, muted: false,
+    engine: 'zb', voiceURI: '', pitch: 0.92, rate: 1, muted: false,
     elevenKey: '', elevenVoice: '', elevenModel: 'eleven_flash_v2_5',
     apiKey: '', model: 'claude-opus-5-5', web: false, wake: false,
     ...local.get('device', {}),
   };
   if (dev.elevenModel === 'eleven_turbo_v2_5') dev.elevenModel = 'eleven_flash_v2_5'; // retired option
   const saveDev = () => local.set('device', dev);
+  if (!dev.zbVoiceDefault) {
+    // ZB's own voice arrived: it becomes the voice everywhere ElevenLabs isn't set up
+    if (dev.engine !== 'eleven') dev.engine = 'zb';
+    dev.zbVoiceDefault = true;
+    saveDev();
+  }
 
   // ---------- face ----------
   const view = $('view');
@@ -174,8 +181,12 @@ export function boot({ apiAsk = null, apiErrorText = null, models = [] } = {}) {
       if (!$('panel').hidden) fillVoices();
     },
   });
+  const zb = new ZbVoice();
+  speaker.zb = zb;
+  const engineNow = () => (dev.engine === 'eleven' && mode !== 'web' ? 'zb' : dev.engine);
   const applyVoice = () => speaker.configure({
-    engine: mode === 'web' ? dev.engine : 'device',
+    engine: engineNow(),
+    zbSpeaker: store.profile.zbSpeaker ?? ZB_DEFAULT_SPEAKER, zbAccent: store.profile.zbAccent ?? 2, zbRate: store.profile.zbRate ?? 1.05,
     voiceURI: dev.voiceURI, pitch: dev.pitch, rate: dev.rate, muted: dev.muted,
     elevenKey: dev.elevenKey, elevenVoice: dev.elevenVoice, elevenModel: dev.elevenModel,
   });
@@ -261,6 +272,7 @@ export function boot({ apiAsk = null, apiErrorText = null, models = [] } = {}) {
   store.onChange((what) => {
     if (what === 'profile') {
       applyProfile();
+      applyVoice();
       if (!$('panel').hidden) fillSettings(true);
     }
     if (what === 'memory') {
@@ -290,6 +302,90 @@ export function boot({ apiAsk = null, apiErrorText = null, models = [] } = {}) {
     $('hint').textContent = h;
   }
   setHint();
+
+  // ---------- ZB's own voice ----------
+  const voiceChip = $('voiceChip');
+  // download on its own on computers; on phones it waits for a tap, since it's a big download on cell data
+  const cellular = navigator.connection && (navigator.connection.saveData || /cellular/.test(navigator.connection.type || ''));
+  const autoGet = !touch && !cellular;
+  let fetched = false; // this page load downloaded it, so say when it's ready
+  function showZb() {
+    const st = zb.state;
+    const pct = `${Math.round(zb.progress * 100)}%`;
+    let chip = '';
+    if (engineNow() === 'zb') {
+      if (st === 'missing') chip = `Get ZB\u2019s voice \u00b7 ${VOICE_DOWNLOAD_MB} MB`;
+      else if (st === 'downloading') chip = `Downloading ZB\u2019s voice \u00b7 ${pct}`;
+      else if (st === 'loading' && fetched) chip = 'Starting ZB\u2019s voice\u2026';
+      else if (st === 'failed') chip = 'ZB\u2019s voice didn\u2019t load \u00b7 tap to retry';
+    }
+    voiceChip.hidden = !chip;
+    voiceChip.textContent = chip;
+    voiceChip.toggleAttribute('data-busy', st === 'downloading' || st === 'loading');
+    $('zbStatus').textContent = {
+      unknown: '',
+      unsupported: 'This browser can\u2019t run ZB\u2019s voice, so he uses the device\u2019s voice here.',
+      missing: `Download it once on each device (${VOICE_DOWNLOAD_MB} MB). Until then he uses the device\u2019s voice.`,
+      downloading: `Downloading\u2026 ${pct}`,
+      loading: 'Starting up\u2026',
+      ready: 'Ready on this device.',
+      failed: zb.message || 'Something went wrong.',
+    }[st];
+    $('zbBar').hidden = st !== 'downloading';
+    $('zbFill').style.width = pct;
+    $('zbGet').hidden = !['missing', 'failed', 'downloading'].includes(st);
+    $('zbGet').textContent = st === 'downloading' ? 'Cancel download' : st === 'failed' ? 'Try again' : 'Download ZB\u2019s voice';
+    $('zbRemove').hidden = st !== 'ready';
+  }
+  zb.onChange((z) => {
+    if (z.state === 'downloading') fetched = true;
+    if (fetched && z.state === 'ready') {
+      fetched = false;
+      toast('ZB\u2019s voice is ready');
+    }
+    if (fetched && z.state === 'failed') toast(z.message || 'ZB\u2019s voice didn\u2019t download.', true);
+    showZb();
+  });
+  voiceChip.addEventListener('click', () => {
+    if (zb.state === 'missing' || zb.state === 'failed') zb.download();
+  });
+  $('zbGet').addEventListener('click', () => (zb.state === 'downloading' ? zb.cancelDownload() : zb.download()));
+  $('zbRemove').addEventListener('click', async () => {
+    await zb.remove();
+    toast('Removed ZB\u2019s voice from this device');
+  });
+  zb.check().then((have) => {
+    if (have) zb.start();
+    else if (zb.state === 'missing' && engineNow() === 'zb' && autoGet) zb.download();
+    showZb();
+  });
+  let previewT = 0;
+  const previewZb = () => {
+    clearTimeout(previewT);
+    previewT = setTimeout(() => {
+      if (zb.state !== 'ready') return;
+      unlock();
+      speaker.stop();
+      speaker.say(`Yo, what's good, this voice ${(store.profile.zbSpeaker ?? ZB_DEFAULT_SPEAKER) + 1}.`, { mood: 'confident' });
+    }, 350);
+  };
+  const setSpeaker = (n) => {
+    const v = ((n % ZB_SPEAKERS) + ZB_SPEAKERS) % ZB_SPEAKERS;
+    $('zbSpeaker').value = v + 1;
+    store.setProfile({ zbSpeaker: v });
+    previewZb();
+  };
+  $('zbPrev').addEventListener('click', () => setSpeaker((store.profile.zbSpeaker ?? ZB_DEFAULT_SPEAKER) - 1));
+  $('zbNext').addEventListener('click', () => setSpeaker((store.profile.zbSpeaker ?? ZB_DEFAULT_SPEAKER) + 1));
+  $('zbSpeaker').addEventListener('change', () => setSpeaker(clamp(parseInt($('zbSpeaker').value, 10) || ZB_DEFAULT_SPEAKER + 1, 1, ZB_SPEAKERS) - 1));
+  $('zbAccent').addEventListener('change', () => {
+    store.setProfile({ zbAccent: parseInt($('zbAccent').value, 10) || 0 });
+    previewZb();
+  });
+  $('zbRate').addEventListener('change', () => {
+    store.setProfile({ zbRate: parseFloat($('zbRate').value) || 1.05 });
+    previewZb();
+  });
 
   // ---------- waking / audio unlock ----------
   let awake = false;
@@ -1175,7 +1271,10 @@ export function boot({ apiAsk = null, apiErrorText = null, models = [] } = {}) {
     keep('setBeard', p.beard !== false);
     keep('setHair', p.hair !== false);
     keep('setMute', dev.muted);
-    keep('setEngine', dev.engine);
+    keep('setEngine', engineNow());
+    keep('zbAccent', String(p.zbAccent ?? 2));
+    keep('zbRate', p.zbRate ?? 1.05);
+    keep('zbSpeaker', (p.zbSpeaker ?? ZB_DEFAULT_SPEAKER) + 1);
     keep('setPitch', dev.pitch);
     keep('setRate', dev.rate);
     keep('setElKey', dev.elevenKey);
@@ -1210,9 +1309,11 @@ export function boot({ apiAsk = null, apiErrorText = null, models = [] } = {}) {
     fillMirror(fromSync);
   }
   function showEngine() {
-    const eleven = mode === 'web' && dev.engine === 'eleven';
-    $('elevenVoice').hidden = !eleven;
-    $('deviceVoice').hidden = eleven;
+    const engine = engineNow();
+    $('elevenVoice').hidden = engine !== 'eleven';
+    $('deviceVoice').hidden = engine !== 'device';
+    $('zbVoice').hidden = engine !== 'zb';
+    showZb();
   }
 
   const onProfileInput = (id, key, transform = (v) => v) => {
@@ -1263,7 +1364,12 @@ export function boot({ apiAsk = null, apiErrorText = null, models = [] } = {}) {
   devInput('setModel', 'model', 'change');
   devInput('setWeb', 'web', 'change', (el) => el.checked);
   devInput('setWake', 'wake', 'change', (el) => el.checked);
-  $('setEngine').addEventListener('change', showEngine);
+  $('setEngine').addEventListener('change', () => {
+    showEngine();
+    if (engineNow() === 'zb' && (zb.state === 'missing' || zb.state === 'failed')) zb.download();
+  });
+  if (mode !== 'web') $('setEngine').querySelector('option[value="eleven"]')?.remove();
+
   $('setWake').addEventListener('change', () => {
     unlock();
     listener.setWake(dev.wake);

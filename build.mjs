@@ -21,7 +21,20 @@ fs.mkdirSync('docs/lib', { recursive: true });
 await esbuild.build({ entryPoints: ['src/pdf-entry.js'], bundle: true, format: 'iife', minify: true, outfile: 'dist/lib/pdf.js', target, logLevel: 'error' });
 fs.copyFileSync('dist/lib/pdf.js', 'docs/lib/pdf.js');
 
-const art = await esbuild.build({ entryPoints: ['src/entry-artifact.js'], bundle: true, format: 'iife', minify: true, write: false, target });
+// ZB's own voice: a worker running the model with onnxruntime-web, its WebAssembly, and the packed voice (dev/voice-pack.py)
+const voice = JSON.parse(fs.readFileSync('assets/voice/zb-voice.json', 'utf8'));
+const define = { __ZB_VOICE_VERSION__: JSON.stringify(voice.version) };
+await esbuild.build({ entryPoints: ['src/voice-worker.js'], bundle: true, format: 'iife', minify: true, outfile: 'dist/lib/voice-worker.js', target, logLevel: 'error' });
+for (const dir of ['dist', 'docs']) {
+  fs.mkdirSync(`${dir}/voice`, { recursive: true });
+  for (const f of ['zb-voice.json', ...voice.parts]) fs.copyFileSync(`assets/voice/${f}`, `${dir}/voice/${f}`);
+  fs.copyFileSync('node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm', `${dir}/lib/ort-wasm-simd-threaded.wasm`);
+  // its loader module, as .js because pages here only serve common web file types
+  fs.copyFileSync('node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs', `${dir}/lib/ort-wasm-simd-threaded.js`);
+}
+fs.copyFileSync('dist/lib/voice-worker.js', 'docs/lib/voice-worker.js');
+
+const art = await esbuild.build({ entryPoints: ['src/entry-artifact.js'], bundle: true, format: 'iife', minify: true, write: false, target, define });
 fs.writeFileSync(
   'dist/jarvis.html',
   `<title>ZB</title>
@@ -35,7 +48,7 @@ ${body.replace('data-mode="web"', 'data-mode="cloud"')}
 `,
 );
 
-await esbuild.build({ entryPoints: ['src/entry-web.js'], bundle: true, format: 'iife', minify: true, outfile: 'docs/app.js', target });
+await esbuild.build({ entryPoints: ['src/entry-web.js'], bundle: true, format: 'iife', minify: true, outfile: 'docs/app.js', target, define });
 fs.writeFileSync(
   'docs/index.html',
   `<!doctype html>
@@ -106,6 +119,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname.includes('/voice/') || url.pathname.endsWith('.wasm')) return; // ZB's voice keeps its own copy
   e.respondWith(
     fetch(e.request)
       .then((res) => {
@@ -122,3 +136,4 @@ fs.writeFileSync('docs/.nojekyll', '');
 const kb = (f) => `${(fs.statSync(f).size / 1024).toFixed(0)} KB`;
 console.log('dist/jarvis.html', kb('dist/jarvis.html'));
 console.log('docs/app.js', kb('docs/app.js'));
+console.log('dist/lib/voice-worker.js', kb('dist/lib/voice-worker.js'));
