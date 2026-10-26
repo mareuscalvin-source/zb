@@ -1,5 +1,5 @@
 // Offline support: serve the app shell from cache when the network is unavailable.
-const CACHE = 'zb-mvpvfuxy';
+const CACHE = 'zb-mvpvipgy';
 const SHELL = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
