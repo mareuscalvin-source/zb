@@ -123,7 +123,8 @@ export class ZbVoice {
         gz.push(fromBase64(text.trim()));
       }
       const stream = new Blob(gz).stream().pipeThrough(new DecompressionStream('gzip'));
-      const half = new Uint8Array(await new Response(stream).arrayBuffer());
+      let half = new Uint8Array(await new Response(stream).arrayBuffer());
+      gz.length = 0;
       if (half.length !== manifest.halfBytes) throw new Error('The voice download was incomplete. Try again.');
       if (manifest.version !== VERSION && VERSION !== 'dev') throw new Error('The voice on this page is updating. Reload and try again.');
       await idb('readwrite', (s) => {
@@ -132,6 +133,7 @@ export class ZbVoice {
         s.put(wasm.buffer, 'wasm');
         return s.put({ version: manifest.version, at: Date.now() }, 'meta');
       });
+      half = null; // start() reads its own copy; on phones two copies of the voice at once is a lot of memory
       this._set('loading', { progress: 1 });
       await this.start();
     } catch (e) {
