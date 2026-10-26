@@ -1,5 +1,5 @@
 // Offline support: serve the app shell from cache when the network is unavailable.
-const CACHE = 'zb-mvkej97e';
+const CACHE = 'zb-mvpvfuxy';
 const SHELL = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -12,6 +12,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname.includes('/voice/') || url.pathname.endsWith('.wasm')) return; // ZB's voice keeps its own copy
   e.respondWith(
     fetch(e.request)
       .then((res) => {
